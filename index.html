@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>🎤 Voice Vibe - Voice Recorder, Transcriber & Pitch Detector</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+  background: linear-gradient(145deg, #1e1e2f, #2a2a40);
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.container {
+  background: rgba(255 255 255 / 0.1);
+  backdrop-filter: blur(15px);
+  border-radius: 20px;
+  padding: 30px 25px 40px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.6);
+  text-align: center;
+  width: 90%;
+  max-width: 550px;
+  user-select: none;
+  box-sizing: border-box;
+}
+h1 {
+  margin: 0 0 10px;
+  font-weight: 700;
+  font-size: 2.2rem;
+  text-shadow: 0 0 10px #00f7ffaa;
+}
+#recording-indicator,
+#recognition-indicator {
+  display: inline-flex;
+  align-items: center;
+  margin: 8px 0 16px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #00ffcc;
+  user-select: none;
+}
+#recording-indicator .dot,
+#recognition-indicator .dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-right: 10px;
+  background: #00ffcc;
+  animation: pulse 1.5s infinite ease-in-out;
+  box-shadow: 0 0 6px #00ffcc88;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0.6;
+  }
+}
+#transcript {
+  min-height: 80px;
+  margin-top: 4px;
+  padding: 15px 20px;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+  border-radius: 12px;
+  background: rgba(255 255 255 / 0.12);
+  color: #e0f7ff;
+  overflow-wrap: break-word;
+  box-shadow: inset 0 0 20px #00c9ff88, inset 0 0 30px #00ffeaaa, 0 0 10px #00c9ffa0;
+}
+button {
+  margin: 10px 8px;
+  padding: 14px 28px;
+  background: linear-gradient(90deg, #00c9ff, #92fe9d);
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 6px 8px #00f7ff70;
+  transition: background 0.3s, transform 0.15s;
+  user-select: none;
+  touch-action: manipulation;
+}
+button:active {
+  transform: scale(0.95);
+}
+button:disabled {
+  background: #444;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+canvas {
+  width: 100% !important;
+  height: 160px !important;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 16px;
+  margin-top: 28px;
+  box-shadow: 0 0 15px #00ffccaa, inset 0 0 30px #00ffcc80;
+}
+audio {
+  width: 100%;
+  margin-top: 30px;
+  outline: none;
+  border-radius: 12px;
+  box-shadow: 0 3px 10px #00ddb680;
+  background: rgba(0,0,0,0.3);
+}
+#voice-status {
+  color: #ff6e6e;
+  font-weight: 600;
+  margin-top: 10px;
+  height: 24px;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+#pitch-bass-info {
+  margin-top: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  text-shadow: 0 0 10px #00ffcc99;
+  color: #00ffcc;
+  min-height: 20px;
+}
+#volume-meter {
+  margin-top: 8px;
+  height: 12px;
+  width: 100%;
+  max-width: 550px;
+  background: #222;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: inset 0 0 8px #00ffccaa;
+}
+#volume-level {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #00ffcc, #005f54);
+  border-radius: 8px;
+  transition: width 0.1s linear;
+}
+#gender-display {
+  margin-top: 20px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #00ffc3;
+  text-shadow: 0 0 8px #00ffc3bb;
+  min-height: 22px;
+}
+@media (max-width: 425px) {
+  h1 {
+    font-size: 1.7rem;
+  }
+  button {
+    padding: 12px 18px;
+    font-size: 0.9rem;
+    margin: 8px 5px;
+  }
+  #transcript {
+    min-height: 60px;
+    font-size: 1rem;
+    margin-top: 15px;
+  }
+  canvas {
+    height: 110px !important;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container" role="main" aria-label="Voice Vibe voice recorder and recognizer">
+  <h1>🎤 Voice Vibe</h1>
+
+  <div id="recognition-indicator" aria-live="polite" aria-atomic="true" hidden>
+    <span class="dot"></span> Listening for speech...
+  </div>
+  <div id="recording-indicator" aria-live="polite" aria-atomic="true" hidden>
+    <span class="dot"></span> Recording audio...
+  </div>
+
+  <button id="btnStartRecog" type="button">Start Recognition</button>
+  <button id="btnStopRecog" type="button" disabled>Stop Recognition</button>
+  <button id="btnStartRecord" type="button">Start Recording</button>
+  <button id="btnStopRecord" type="button" disabled>Stop Recording</button>
+
+  <div id="transcript" aria-label="Speech transcription"></div>
+  <div id="gender-display" aria-live="polite" aria-atomic="true"></div>
+
+  <audio id="playback" controls aria-label="Playback of recorded audio"></audio>
+
+  <canvas id="visualizer" aria-hidden="true" width="500" height="160"></canvas>
+
+  <div id="volume-meter" aria-hidden="true">
+    <div id="volume-level"></div>
+  </div>
+
+  <div id="voice-status" aria-live="assertive" aria-atomic="true" role="alert"></div>
+  <div id="pitch-bass-info" aria-live="polite" aria-atomic="true"></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // Elements
+  const startRecogBtn = document.getElementById('btnStartRecog');
+  const stopRecogBtn = document.getElementById('btnStopRecog');
+  const startRecordBtn = document.getElementById('btnStartRecord');
+  const stopRecordBtn = document.getElementById('btnStopRecord');
+  const transcriptEl = document.getElementById('transcript');
+  const playbackEl = document.getElementById('playback');
+  const canvas = document.getElementById('visualizer');
+  const ctx = canvas.getContext('2d');
+  const recordingIndicator = document.getElementById('recording-indicator');
+  const recognitionIndicator = document.getElementById('recognition-indicator');
+  const voiceStatusEl = document.getElementById('voice-status');
+  const pitchBassInfoEl = document.getElementById('pitch-bass-info');
+  const volumeMeter = document.getElementById('volume-meter');
+  const volumeLevel = document.getElementById('volume-level');
+  const genderDisplay = document.getElementById('gender-display');
+
+  // State
+  let recognition = null;
+  let recognizing = false;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let audioContext = null;
+  let analyser = null;
+  let animationId = null;
+  let sourceNode = null;
+  let noVoiceTimeout = null;
+  let isVoiceDetected = false;
+
+  // Utility functions
+
+  function clearCanvas() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function resizeCanvas() {
+    const ratio = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth * ratio;
+    const h = canvas.clientHeight * ratio;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+  clearCanvas();
+
+  // Pitch detection: autocorrelation simplified
+  function detectPitch(timeDomainData) {
+    if (!timeDomainData || timeDomainData.length === 0) return null;
+    const sampleRate = audioContext ? audioContext.sampleRate : 44100;
+    let rms = 0;
+    for (let i = 0; i < timeDomainData.length; i++) {
+      rms += timeDomainData[i] * timeDomainData[i];
+    }
+    rms = Math.sqrt(rms / timeDomainData.length);
+    if (rms < 0.01) return null;
+
+    let bestOffset = -1;
+    let bestCorrelation = 0;
+    const SIZE = timeDomainData.length;
+    for (let offset = 0; offset < SIZE / 2; offset++) {
+      let correlation = 0;
+      for (let i = 0; i < SIZE / 2; i++) {
+        correlation += Math.abs(timeDomainData[i] - timeDomainData[i + offset]);
+      }
+      correlation = 1 - correlation / (SIZE / 2);
+      if (correlation > bestCorrelation) {
+        bestCorrelation = correlation;
+        bestOffset = offset;
+      }
+    }
+    if (bestCorrelation > 0.9 && bestOffset > 0) {
+      return sampleRate / bestOffset;
+    }
+    return null;
+  }
+
+  function calculateBass(freqData) {
+    if (!freqData || freqData.length === 0) return 0;
+    const bassBins = 7;
+    let sum = 0;
+    for (let i = 0; i < bassBins && i < freqData.length; i++) {
+      sum += freqData[i];
+    }
+    return sum / bassBins;
+  }
+
+  // Updated drawVisualizer function with improved voice detection and warning logic
+  function drawVisualizer() {
+    if (!analyser) return;
+    const bufferLength = analyser.frequencyBinCount;
+    const freqData = new Uint8Array(bufferLength);
+    const timeData = new Float32Array(analyser.fftSize);
+    analyser.getByteFrequencyData(freqData);
+    analyser.getFloatTimeDomainData(timeData);
+
+    clearCanvas();
+
+    // Calculate RMS for volume level
+    let rms = 0;
+    for (let i = 0; i < timeData.length; i++) {
+      rms += timeData[i] * timeData[i];
+    }
+    rms = Math.sqrt(rms / timeData.length);
+    const normalizedVol = Math.min(1, rms * 20);
+    volumeLevel.style.width = (normalizedVol * 100) + '%';
+
+    // Voice detection and warning message handling
+    if (normalizedVol > 0.02) {
+      // Voice detected
+      if (!isVoiceDetected) {
+        isVoiceDetected = true;
+        voiceStatusEl.textContent = '';
+        if (noVoiceTimeout) {
+          clearTimeout(noVoiceTimeout);
+          noVoiceTimeout = null;
+        }
+      }
+    } else {
+      // No voice detected - start or keep warning timeout
+      if (isVoiceDetected) {
+        isVoiceDetected = false;
+        if (noVoiceTimeout) clearTimeout(noVoiceTimeout);
+        noVoiceTimeout = setTimeout(() => {
+          voiceStatusEl.textContent = '⚠️ Please say something...';
+        }, 2000);
+      } else if (!noVoiceTimeout) {
+        // If not detected and no timeout active, set timeout
+        noVoiceTimeout = setTimeout(() => {
+          voiceStatusEl.textContent = '⚠️ Please say something...';
+        }, 2000);
+      }
+    }
+
+    const barWidth = (canvas.width / bufferLength) * 1.5;
+    let x = 0;
+    for (let i = 0; i < bufferLength; i++) {
+      const barHeight = freqData[i];
+      const r = Math.min(255, barHeight * 2);
+      const g = Math.min(200, (bufferLength - i) * 2);
+      const b = 255 - barHeight;
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.8)`;
+      ctx.fillRect(x, canvas.height - barHeight / 1.8, barWidth, barHeight / 1.8);
+      x += barWidth + 2;
+    }
+
+    const pitch = detectPitch(timeData);
+    const bassLevel = calculateBass(freqData);
+
+    pitchBassInfoEl.textContent = pitch !== null ? `Pitch: ${pitch.toFixed(1)} Hz | Bass: ${bassLevel.toFixed(1)}` : `Bass: ${bassLevel.toFixed(1)}`;
+
+    // Gender message based on pitch heuristic
+    if (pitch !== null) {
+      if (pitch > 160) {
+        genderDisplay.textContent = "Hello Beautiful"; // Higher pitch = likely female
+      } else if (pitch > 70) {
+        genderDisplay.textContent = "Hey Handsome"; // Lower pitch = likely male
+      } else {
+        genderDisplay.textContent = "";
+      }
+    } else {
+      genderDisplay.textContent = "";
+    }
+
+    animationId = requestAnimationFrame(drawVisualizer);
+  }
+
+  function clearPitchBass() {
+    pitchBassInfoEl.textContent = '';
+    genderDisplay.textContent = '';
+  }
+
+  function stopVisualizer() {
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+    clearCanvas();
+    clearPitchBass();
+    volumeLevel.style.width = '0%';
+  }
+
+  // Speech Recognition Setup and fallback simulation
+  function initRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech Recognition API not supported in this browser. Using fallback simulated transcription.');
+      startSimulatedTranscription();
+      return null;
+    }
+    const recog = new SpeechRecognition();
+    recog.lang = 'en-US';
+    recog.interimResults = true;
+    recog.continuous = true;
+    recog.onstart = () => {
+      recognizing = true;
+      startRecogBtn.disabled = true;
+      stopRecogBtn.disabled = false;
+      transcriptEl.textContent = '';
+      recognitionIndicator.hidden = false;
+      stopSimulatedTranscription();
+    };
+    recog.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+        alert('Microphone permission denied. Using fallback simulated transcription.');
+        recognitionIndicator.hidden = true;
+        recognizing = false;
+        startRecogBtn.disabled = false;
+        stopRecogBtn.disabled = true;
+        startSimulatedTranscription();
+      } else {
+        alert('Speech recognition error: ' + event.error);
+      }
+    };
+    recog.onend = () => {
+      recognizing = false;
+      startRecogBtn.disabled = false;
+      stopRecogBtn.disabled = true;
+      recognitionIndicator.hidden = true;
+      // Restart fallback after real recognition ends unexpectedly
+      if (!recognition) {
+        startSimulatedTranscription();
+      }
+    };
+    recog.onresult = (event) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+      transcriptEl.textContent = finalTranscript + (interimTranscript ? interimTranscript : '');
+    };
+    return recog;
+  }
+
+  // Fallback fake transcript for simulation when recognition is unavailable
+  const fallbackSentences = [
+    "Hello, this is a demo transcription.",
+    "I love coding web applications.",
+    "Testing voice recognition fallback.",
+    "This app supports voice to text!",
+    "You are doing great speaking.",
+    "Simulated text input for show off."
+  ];
+  let fallbackIndex = 0;
+  let simFallbackInterval = null;
+
+  function startSimulatedTranscription() {
+    transcriptEl.textContent = "";
+    simFallbackInterval = setInterval(() => {
+      transcriptEl.textContent += (transcriptEl.textContent ? " " : "") + fallbackSentences[fallbackIndex];
+      fallbackIndex = (fallbackIndex + 1) % fallbackSentences.length;
+    }, 3200);
+  }
+
+  function stopSimulatedTranscription() {
+    if (simFallbackInterval) {
+      clearInterval(simFallbackInterval);
+      simFallbackInterval = null;
+      fallbackIndex = 0;
+    }
+  }
+
+  // Recognition control
+  function startRecognition() {
+    if (recognizing) return;
+    if (!recognition) {
+      recognition = initRecognition();
+      if (!recognition) return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(() => {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.warn('Recognition start error:', e);
+        }
+      })
+      .catch((err) => {
+        alert('Microphone access denied or error. Using fallback simulated transcription.');
+        recognition = null;
+        startSimulatedTranscription();
+        console.error('Mic permission error for recognition:', err);
+      });
+  }
+  function stopRecognition() {
+    if (recognition && recognizing) recognition.stop();
+    stopSimulatedTranscription();
+  }
+
+  // Recording control
+  async function startRecording() {
+    startRecordBtn.disabled = true;
+    stopRecordBtn.disabled = true;
+    playbackEl.src = '';
+    audioChunks = [];
+    isVoiceDetected = false;
+    voiceStatusEl.textContent = '';
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      let options = {};
+      if (MediaRecorder.isTypeSupported('audio/webm')) {
+        options.mimeType = 'audio/webm';
+      } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+        options.mimeType = 'audio/ogg';
+      }
+      mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorder.onstart = () => {
+        startRecordBtn.disabled = true;
+        stopRecordBtn.disabled = false;
+        recordingIndicator.hidden = false;
+        noVoiceTimeout = setTimeout(() => {
+          if (!isVoiceDetected) {
+            voiceStatusEl.textContent = '⚠️ Please say something...';
+          }
+        }, 2000);
+      };
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) audioChunks.push(event.data);
+      };
+      mediaRecorder.onerror = (event) => console.error('MediaRecorder error:', event.error);
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        playbackEl.src = audioUrl;
+        voiceStatusEl.textContent = '';
+        if (noVoiceTimeout) {
+          clearTimeout(noVoiceTimeout);
+          noVoiceTimeout = null;
+        }
+        recordingIndicator.hidden = true;
+        startRecordBtn.disabled = false;
+        stopRecordBtn.disabled = true;
+        stopVisualizer();
+        if (mediaRecorder.stream) {
+          mediaRecorder.stream.getTracks().forEach(t => t.stop());
+        }
+      };
+      mediaRecorder.start();
+
+      if (audioContext) {
+        audioContext.close().catch(() => {});
+        audioContext = null;
+      }
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      sourceNode = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      sourceNode.connect(analyser);
+
+      drawVisualizer();
+      mediaRecorder.stream = stream;
+    } catch (err) {
+      alert('Microphone access denied or error. Please allow microphone usage and try again.');
+      startRecordBtn.disabled = false;
+      stopRecordBtn.disabled = true;
+      stopVisualizer();
+      recordingIndicator.hidden = true;
+      voiceStatusEl.textContent = '';
+      if (noVoiceTimeout) {
+        clearTimeout(noVoiceTimeout);
+        noVoiceTimeout = null;
+      }
+    }
+  }
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+  }
+
+
+  // Button event listeners
+  startRecogBtn.addEventListener('click', startRecognition);
+  stopRecogBtn.addEventListener('click', stopRecognition);
+  startRecordBtn.addEventListener('click', startRecording);
+  stopRecordBtn.addEventListener('click', stopRecording);
+
+  // Init UI states
+  stopRecogBtn.disabled = true;
+  stopRecordBtn.disabled = true;
+  recordingIndicator.hidden = true;
+  recognitionIndicator.hidden = true;
+  voiceStatusEl.textContent = '';
+
+})();
+</script>
+</body>
+</html>
+
